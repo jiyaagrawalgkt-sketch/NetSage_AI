@@ -1,0 +1,113 @@
+case_id,symptom,topology_note,show_outputs,concept_tag,severity,osi_layer,expected_fault,expected_fix
+NET-001,PC1 cannot reach Server1 in VLAN 30,PC1 -> Switch -> Router-on-a-Stick -> Server1,"GigabitEthernet0/0.10 is up, line protocol is up
+GigabitEthernet0/0.30 is administratively down, line protocol is down",Inter-VLAN Routing,High,Layer 3,VLAN 30 router sub-interface is administratively down,no shutdown on VLAN 30 sub-interface
+NET-002,PC in VLAN 20 cannot communicate with another VLAN,PC -> Access Switch -> Router,"show vlan brief
+20  SALES  active
+interface GigabitEthernet0/1
+ switchport access vlan 30",VLAN,High,Layer 2,Access port is assigned to VLAN 30 instead of VLAN 20,switchport access vlan 20
+NET-003,PC gets IP but cannot reach its gateway,PC -> Switch -> Router,"PC IP: 192.168.10.25/24
+Default Gateway: 192.168.20.1
+Router interface: 192.168.10.1/24",Gateway,High,Layer 3,Default gateway is in the wrong subnet,ipconfig / show ip interface brief
+NET-004,PC receives an APIPA address,PC -> Switch -> DHCP Server,"ipconfig
+IPv4 Address: 169.254.10.20
+DHCP Server: 0.0.0.0
+show ip dhcp pool
+No addresses leased",DHCP,High,Layer 3,DHCP service/pool is unavailable or not reachable,show ip dhcp pool; show ip dhcp binding
+NET-005,Clients get addresses but DNS names do not resolve,Clients -> DNS Server,"ipconfig
+DNS Server: 192.168.50.99
+ping 192.168.50.99 = Request timed out
+nslookup example.local = timeout",DNS,Medium,Layer 7,Configured DNS server is unreachable,ping 192.168.50.99; show ip route
+NET-006,Router cannot reach remote LAN,Router A -> Router B -> LAN,"show ip route
+192.168.30.0/24 is not present
+show ip interface brief
+G0/1 10.0.0.1 up/up",Routing,High,Layer 3,Route to remote 192.168.30.0/24 is missing,show ip route; configure a route after verification
+NET-007,Guest network can reach internal server,Guest Wi-Fi -> AP -> Router -> Internal Server,"show access-lists
+ACL 110 permits ip 10.20.0.0 0.0.0.255 10.10.0.0 0.0.0.255
+Guest IP: 10.20.0.25",ACL,Critical,Layer 3/4,ACL explicitly permits guest-to-internal traffic,show access-lists; verify intended isolation policy
+NET-008,Internet access fails although inside clients can ping gateway,LAN -> NAT Router -> ISP,"show ip nat translations
+Pro Inside global: none
+show run | include ip nat
+No ip nat inside source statement",NAT,High,Layer 3,Required source NAT/PAT configuration is missing,show ip nat statistics; inspect NAT configuration
+NET-009,Only one VLAN has no Internet access,VLAN 40 -> Router -> ISP,"interface G0/0.40
+encapsulation dot1Q 40
+ip address 192.168.40.1 255.255.255.0
+show interfaces trunk
+Vlans allowed on trunk: 10,20,30",VLAN Trunk,High,Layer 2,VLAN 40 is not allowed on the trunk,show interfaces trunk; verify allowed VLAN list
+NET-010,Two hosts report duplicate IP behavior,Switch -> two PCs,"PC1: 192.168.1.20/24
+PC2: 192.168.1.20/24
+ping 192.168.1.20: intermittent replies",IP Addressing,Critical,Layer 3,Two hosts are configured with the same IP address,ipconfig / verify DHCP bindings
+NET-011,OSPF neighbor is not forming,Router A <-> Router B,"show ip ospf neighbor
+Neighbor count: 0
+R1 G0/0: 10.0.0.1/30
+R2 G0/0: 10.0.0.2/24",OSPF,High,Layer 3,OSPF-facing interfaces have mismatched subnet masks,show ip ospf interface; show ip interface
+NET-012,Static route is configured but packets take wrong path,Router -> multiple WAN links,"show ip route 10.50.0.0
+Routing entry: 10.50.0.0/16
+Known via static, distance 200",Routing,Medium,Layer 3,Static route has an unnecessarily high administrative distance,show ip route; verify competing routes
+NET-013,ACL blocks legitimate web traffic,Client -> Router -> Web Server,"show access-lists 120
+10 deny tcp 192.168.10.0 0.0.0.255 any eq 80
+20 permit ip any any",ACL,High,Layer 4,ACL denies HTTP traffic from the client network,show access-lists 120; inspect ACL order
+NET-014,Router interface cannot come up,Router -> Switch,"show ip interface brief
+G0/1 192.168.5.1 administratively down down",Interface Status,High,Layer 1/3,Interface is administratively shut down,show interfaces G0/1; no shutdown after verification
+NET-015,Switch port is down for a connected PC,PC -> Switch,"show interfaces G0/10 status
+G0/10 disabled
+show interfaces G0/10
+err-disabled",Switch Security,High,Layer 2,Port is err-disabled,show errdisable recovery; inspect port-security events
+NET-016,VLAN exists on switch but PC is in wrong broadcast domain,PC -> Access Switch,"show vlan brief
+10 USERS active
+20 SERVERS active
+G0/5 assigned to VLAN 20
+PC belongs to USERS",VLAN,Medium,Layer 2,PC access port is assigned to the SERVER VLAN,show vlan brief; correct access VLAN
+NET-017,DHCP clients get wrong default gateway,PC -> Router/DHCP,"show ip dhcp pool USERS
+Default gateway: 192.168.20.1
+Router VLAN interface: 192.168.10.1",DHCP,High,Layer 3,DHCP pool specifies the wrong default gateway,show run | section ip dhcp
+NET-018,DHCP pool has no available addresses,Many PCs -> DHCP Server,"show ip dhcp pool USERS
+Network: 192.168.10.0/24
+Leased addresses: 254
+Utilization: 100%",DHCP,Medium,Layer 3,DHCP pool is exhausted,show ip dhcp binding; expand/verify address pool
+NET-019,DNS server has an incorrect address on clients,PC -> DNS,"ipconfig /all
+DNS Servers: 192.168.60.60
+Known DNS Server: 192.168.60.53",DNS,Medium,Layer 3/7,Clients point to the wrong DNS server,ipconfig /all; nslookup
+NET-020,NAT overload is configured on wrong interface,LAN -> Router -> ISP,"interface G0/0
+ip nat inside
+interface G0/1
+ip nat inside
+show run | include overload
+ip nat inside source list 1 interface G0/0 overload",NAT,High,Layer 3,PAT uses an inside interface instead of the outside interface,show ip nat statistics; verify inside/outside roles
+NET-021,Route exists but next hop is unreachable,Router A -> Router B,"show ip route 172.16.30.0
+via 10.0.0.2
+ping 10.0.0.2 = unreachable
+G0/0 = 10.0.1.1/30",Routing,High,Layer 3,Configured next hop is not reachable from the router,ping next-hop; show ip interface brief
+NET-022,Wireless clients associate but cannot get network access,Laptop -> AP -> Switch,"AP SSID: STUDENT
+Client associated: yes
+Client IP: 0.0.0.0
+Switch port to AP: VLAN 50
+DHCP scope: VLAN 60",Wireless,High,Layer 2/3,Wireless client VLAN and DHCP scope do not match,show vlan; verify SSID-to-VLAN mapping
+NET-023,Trunk does not negotiate expected VLANs,Switch A <-> Switch B,"show interfaces trunk
+G0/1 trunking: yes
+Native VLAN: 99
+Other side native VLAN: 1",Trunk,Medium,Layer 2,Native VLAN mismatch exists between trunk endpoints,show interfaces trunk on both switches
+NET-024,Router has sub-interface but VLAN tag is wrong,Router-on-a-Stick,"interface G0/0.20
+encapsulation dot1Q 30
+ip address 192.168.20.1 255.255.255.0",Inter-VLAN Routing,High,Layer 2/3,Sub-interface VLAN tag does not match intended VLAN 20,show run interface G0/0.20
+NET-025,ACL has correct permit but traffic is still denied,Router ACL,"show access-lists 130
+10 deny ip any 192.168.10.0 0.0.0.255
+20 permit ip 10.10.0.0 0.0.0.255 any",ACL,High,Layer 3/4,Earlier deny rule matches before the permit rule,show access-lists 130; inspect sequence order
+NET-026,Wireless guest clients can access management VLAN,Guest SSID -> AP -> Switch -> Management,"show access-lists GUEST-IN
+No ACL applied to guest interface
+Guest: 10.30.0.0/24
+Mgmt: 10.99.0.0/24",Wireless Security,Critical,Layer 3/4,Guest interface has no isolation ACL,show run interface; show access-lists
+NET-027,Server has correct IP but no default route,Server -> Router,"Server IP: 192.168.70.10/24
+Gateway: blank
+Router: 192.168.70.1/24",Gateway,High,Layer 3,Server has no default gateway,ipconfig /all; verify gateway
+NET-028,VLAN 60 is missing from switch,PC -> Switch -> Router,"PC configured for VLAN 60
+show vlan brief
+10 USERS active
+20 SERVERS active
+60 not present",VLAN,High,Layer 2,Required VLAN 60 does not exist on the switch,show vlan brief; create/verify VLAN 60
+NET-029,Default route is missing on edge router,LAN -> Edge Router -> ISP,"show ip route
+Gateway of last resort is not set
+Connected LAN routes present",Routing,High,Layer 3,Edge router has no default route to ISP,show ip route; verify ISP next hop
+NET-030,Packet loss occurs because interface has errors,PC -> Switch -> Router,"show interfaces G0/1
+input errors: 1820
+CRC: 1760
+line protocol is up",Physical/Interface,Medium,Layer 1/2,Physical/link quality problem indicated by CRC errors,show interfaces counters errors; inspect cable/duplex
